@@ -1,8 +1,31 @@
+<<<<<<< HEAD
 var http = require('http');
 var socketio = require('socket.io');
 var server = http.createServer();
 var io = socketio.listen(server);
 server.listen(process.env.PORT);
+=======
+var port = process.env.PORT;
+
+// websocketとexpressの読み込み
+var http = require('http');
+var path = require('path');
+
+var socketio = require('socket.io');
+var express = require('express');
+
+var router = express();
+var server = http.createServer(router);
+var io = socketio.listen(server);
+
+// expressの設定と起動
+router.use(express.static(path.resolve(__dirname, 'public')));
+
+server.listen(process.env.PORT || 3000, process.env.IP || "0.0.0.0", function(){
+  var addr = server.address();
+  console.log("Chat server listening at", addr.address + ":" + addr.port);
+});
+>>>>>>> 6a2095e3c978ce20c1731f7f289a135e5845c5c0
 
 io.set("log level", 1);
 console.log("Server started.");
