@@ -1,12 +1,3 @@
-<<<<<<< HEAD
-var http = require('http');
-var socketio = require('socket.io');
-var server = http.createServer();
-var io = socketio.listen(server);
-server.listen(process.env.PORT);
-=======
-var port = process.env.PORT;
-
 // websocketとexpressの読み込み
 var http = require('http');
 var path = require('path');
@@ -25,12 +16,11 @@ server.listen(process.env.PORT || 3000, process.env.IP || "0.0.0.0", function(){
   var addr = server.address();
   console.log("Chat server listening at", addr.address + ":" + addr.port);
 });
->>>>>>> 6a2095e3c978ce20c1731f7f289a135e5845c5c0
 
 io.set("log level", 1);
 console.log("Server started.");
 
-var player_list = new Array(); // ログイン中プレイヤー情報を名前から得る関数へのハッシュ
+var player_list = []; // ログイン中プレイヤー情報を名前から得る関数へのハッシュ
 
 // 通信プロトコル
 io.sockets.on("connection", function(socket) {
