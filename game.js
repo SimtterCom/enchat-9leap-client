@@ -3,9 +3,15 @@ name = window.prompt("Input name:");
 var socket = io.connect('http://enchat-9leap.herokuapp.com');
 
 socket.on("connect", function() {
-  socket.emit("name", name);
-  socket.emit("position", (6 * 16 - 8) + "," + (10 * 16) + "," + 0); // 初期位置
-  socket.emit("message", "…"); // 初期メッセージ
+  var player_info = {
+    login_name : name,
+    x : (6 * 16 - 8),
+    y : (10 * 16),
+    direction : 0,
+    message : "…" // フキダシの中身
+  };
+
+  socket.emit("name", player_info);
 });
 
 enchant();
@@ -239,8 +245,8 @@ window.onload = function() {
         });
 
         // 他のユーザのログイン
-        socket.on("name", function(text) {
-            var login_name = text;
+        socket.on("name", function(other_player_info) {
+            var login_name = other_player_info.login_name;
 
             var other_player = new Sprite(32, 32);
             other_player.x = 7 * 16 - 8;
@@ -259,7 +265,7 @@ window.onload = function() {
             other_player.login_name.y = other_player.y + 32;
     
             // チャット内容の表示
-            other_player.message = new Label( "こんにちは" );
+            other_player.message = new Label( other_player_info.message );
             other_player.message._element.setAttribute( 'class', 'message' );
             other_player.message.width = 100;
             other_player.message.color = 'blue';
@@ -267,6 +273,9 @@ window.onload = function() {
             other_player.message.x = other_player.x - 30;
             other_player.message.y = other_player.y - 16;
 
+            // 位置の設定
+            setPosition(other_player, other_player_info);
+            
             // キャラクタ表示レイヤーとメッセージ表示レイヤーに追加
             chara_group.addChild(other_player);
             chara_group.addChild(other_player.login_name);
@@ -274,14 +283,7 @@ window.onload = function() {
 
             // サーバからこのユーザの移動が来たら移動させる
             socket.on("position:" + login_name, function(pos) {
-                other_player.x = pos.x;
-                other_player.y = pos.y;
-                other_player.direction = pos.direction;
-                other_player.message.x = other_player.x - 30;
-                other_player.message.y = other_player.y - 16;
-                other_player.login_name.x = other_player.x - 35;
-                other_player.login_name.y = other_player.y + 32;
-                other_player.frame = other_player.direction * 3;
+	            setPosition(other_player, pos);
             });
 
             // サーバからこのユーザのメッセージが来たらフキダシに表示
@@ -322,3 +324,14 @@ window.onload = function() {
     };
     game.start();
 };
+
+function setPosition(player, pos) {
+    player.x = pos.x;
+    player.y = pos.y;
+    player.direction = pos.direction;
+    player.message.x = player.x - 30;
+    player.message.y = player.y - 16;
+    player.login_name.x = player.x - 35;
+    player.login_name.y = player.y + 32;
+    player.frame = player.direction * 3;
+}
