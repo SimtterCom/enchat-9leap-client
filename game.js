@@ -1,16 +1,23 @@
+var socket = io.connect('http://enchat-9leap.herokuapp.com');
 name = window.prompt("Input name:");
 
-var socket = io.connect('http://enchat-9leap.herokuapp.com');
+var player_info = {
+	id : "",
+	login_name : name,
+	x : (6 * 16 - 8),
+	y : (10 * 16),
+	direction : 0,
+	message : "…" // フキダシの中身
+};
+
+var player = null;
+var other_players = {};
 
 socket.on("connect", function() {
-  var player_info = {
-    login_name : name,
-    x : (6 * 16 - 8),
-    y : (10 * 16),
-    direction : 0,
-    message : "…" // フキダシの中身
-  };
-
+  player_info.id = socket.socket.sessionid;
+  if(player) {
+	player.id = player_info.id;
+  }
   socket.emit("name", player_info);
 });
 
@@ -157,9 +164,10 @@ window.onload = function() {
         var chara_group = new Group();
         var message_group = new Group();
 
-        var player = new Sprite(32, 32);
-        player.x = 6 * 16 - 8;
-        player.y = 10 * 16;
+        player = new Sprite(32, 32);
+        player.id = player_info.id;
+        player.x = player_info.x;
+        player.y = player_info.y;
         var image = new Surface(96, 128);
         image.draw(game.assets['chara0.gif'], 0, 0, 96, 128, 0, 0, 96, 128);
         player.image = image;
@@ -169,7 +177,7 @@ window.onload = function() {
         player.walk = 1;
 
         // 名前の表示
-        player.login_name = new Label( name );
+        player.login_name = new Label( player_info.login_name );
         player.login_name._element.setAttribute( 'class', 'login_name' );
         player.login_name.width = 100;
         player.login_name.color = 'black';
@@ -178,7 +186,7 @@ window.onload = function() {
         player.login_name.y = player.y + 32;
 
         // チャット内容の表示
-        player.message = new Label( "…" );
+        player.message = new Label( player_info.message );
         player.message._element.setAttribute( 'class', 'message' );
         player.message.width = 100;
         player.message.color = 'black';
@@ -199,6 +207,9 @@ window.onload = function() {
                 this.login_name.y = this.y + 32;
                 this.message.x = this.x - 30;
                 this.message.y = this.y - 16;
+                player_info.x = this.x;
+                player_info.y = this.y;
+                player_info.direction = this.direction;
                 socket.emit("position", { x : this.x, y : this.y , direction: this.direction });
 
                 if (!(game.frame % 3)) {
@@ -239,16 +250,17 @@ window.onload = function() {
         player.message.addEventListener('touchend',function(e) {
             var message = prompt( 'input message:', 'hi!' );
             if ( message != '' ) {
-                player.message.text = message;
+                player.message.text = player_info.message = message;
                 socket.emit("message", message);
             }
         });
 
         // 他のユーザのログイン
         socket.on("name", function(other_player_info) {
-            var login_name = other_player_info.login_name;
+            var id = other_player_info.id;
 
-            var other_player = new Sprite(32, 32);
+            var other_player = other_players[id] = new Sprite(32, 32);
+            other_player.id = id;
             other_player.x = 7 * 16 - 8;
             other_player.y = 11 * 16;
             var image2 = new Surface(96, 128);
@@ -256,7 +268,7 @@ window.onload = function() {
             other_player.image = image2;
 
             // 名前の表示
-            other_player.login_name = new Label( login_name );
+            other_player.login_name = new Label( other_player_info.login_name );
             other_player.login_name._element.setAttribute( 'class', 'login_name' );
             other_player.login_name.width = 100;
             other_player.login_name.color = 'blue';
@@ -282,21 +294,22 @@ window.onload = function() {
             message_group.addChild(other_player.message);
 
             // サーバからこのユーザの移動が来たら移動させる
-            socket.on("position:" + login_name, function(pos) {
+            socket.on("position:" + id, function(pos) {
 	            setPosition(other_player, pos);
             });
 
             // サーバからこのユーザのメッセージが来たらフキダシに表示
-            socket.on("message:" + login_name, function(text) {
+            socket.on("message:" + id, function(text) {
                 other_player.message.text = text;
             });
 
             // 切断が送られてきたら表示とオブジェクトの消去
-            socket.on("disconnect:" + login_name, function() {
+            socket.on("disconnect:" + id, function() {
                 // レイヤーから削除
                 chara_group.removeChild(other_player);
                 chara_group.removeChild(other_player.login_name);
                 message_group.removeChild(other_player.message);
+                delete other_players[other_player.id];
                 delete other_player;
             });
         });
