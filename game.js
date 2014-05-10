@@ -178,19 +178,19 @@ window.onload = function() {
 
         // 名前の表示
         player.login_name = new Label( player_info.login_name );
-        player.login_name._element.setAttribute( 'class', 'login_name' );
+        player.login_name.textAlign = 'center';
         player.login_name.width = 100;
         player.login_name.color = 'black';
-        // player.login_name.backgroundColor = 'white';
         player.login_name.x = player.x - 35;
         player.login_name.y = player.y + 32;
 
         // チャット内容の表示
         player.message = new Label( player_info.message );
-        player.message._element.setAttribute( 'class', 'message' );
+        player.message.textAlign = 'center';
         player.message.width = 100;
+        player.message.height = 16;
         player.message.color = 'black';
-        player.message.backgroundColor = 'white';
+        player.message.backgroundColor = 'rgba(255, 255, 255, 0.75)';
         player.message.x = player.x - 30;
         player.message.y = player.y - 16;
 
@@ -269,24 +269,34 @@ window.onload = function() {
 
             // 名前の表示
             other_player.login_name = new Label( other_player_info.login_name );
-            other_player.login_name._element.setAttribute( 'class', 'login_name' );
+            other_player.login_name.textAlign = 'center';
             other_player.login_name.width = 100;
             other_player.login_name.color = 'blue';
-            // other_player.login_name.backgroundColor = 'white';
             other_player.login_name.x = other_player.x - 35;
             other_player.login_name.y = other_player.y + 32;
     
             // チャット内容の表示
             other_player.message = new Label( other_player_info.message );
-            other_player.message._element.setAttribute( 'class', 'message' );
+            other_player.message.textAlign = 'center';
             other_player.message.width = 100;
+            other_player.message.height = 16;
             other_player.message.color = 'blue';
-            other_player.message.backgroundColor = 'white';
+            other_player.message.backgroundColor = 'rgba(255, 255, 255, 0.75)';
             other_player.message.x = other_player.x - 30;
             other_player.message.y = other_player.y - 16;
 
             // 位置の設定
-            setPosition(other_player, other_player_info);
+			other_player.setPosition = function(pos) {
+			    this.x = pos.x;
+			    this.y = pos.y;
+			    this.direction = pos.direction;
+			    this.message.x = this.x - 30;
+			    this.message.y = this.y - 16;
+			    this.login_name.x = this.x - 35;
+			    this.login_name.y = this.y + 32;
+			    this.frame = this.direction * 3;
+			}
+            other_player.setPosition(other_player_info);
             
             // キャラクタ表示レイヤーとメッセージ表示レイヤーに追加
             chara_group.addChild(other_player);
@@ -295,7 +305,7 @@ window.onload = function() {
 
             // サーバからこのユーザの移動が来たら移動させる
             socket.on("position:" + id, function(pos) {
-	            setPosition(other_player, pos);
+	            other_player.setPosition(pos);
             });
 
             // サーバからこのユーザのメッセージが来たらフキダシに表示
@@ -337,14 +347,3 @@ window.onload = function() {
     };
     game.start();
 };
-
-function setPosition(player, pos) {
-    player.x = pos.x;
-    player.y = pos.y;
-    player.direction = pos.direction;
-    player.message.x = player.x - 30;
-    player.message.y = player.y - 16;
-    player.login_name.x = player.x - 35;
-    player.login_name.y = player.y + 32;
-    player.frame = player.direction * 3;
-}
