@@ -246,15 +246,6 @@ window.onload = function() {
             }
         });
 
-        // メッセージの入力とフキダシ内容変更
-        player.message.addEventListener('touchend',function(e) {
-            var message = prompt( 'input message:', 'hi!' );
-            if ( message != '' ) {
-                player.message.text = player_info.message = message;
-                socket.emit("message", message);
-            }
-        });
-
         // 他のユーザのログイン
         socket.on("name", function(other_player_info) {
             var id = other_player_info.id;
@@ -335,6 +326,20 @@ window.onload = function() {
         pad.x = 0;
         pad.y = 220;
         game.rootScene.addChild(pad);
+
+        // メッセージの入力とフキダシ内容変更
+        var inputTextBox = new InputTextBox(); // テキストボックスを作成
+        inputTextBox.x = 175;
+        inputTextBox.y = 280;
+        inputTextBox.addEventListener(enchant.Event.CHANGE, function(e) {
+            var message = this.value;
+            if ( message != '' ) {
+                player.message.text = player_info.message = message;
+                socket.emit("message", message);
+                this.value = '';
+            }
+        });
+        game.rootScene.addChild(inputTextBox);
 
         game.rootScene.addEventListener('enterframe', function(e) {
             var x = Math.min((game.width  - 16) / 2 - player.x, 0);
