@@ -1,5 +1,5 @@
 var socket = io.connect('http://enchat-9leap.herokuapp.com');
-name = window.prompt("Input name:");
+name = window.prompt("ユーザー名を入力してください");
 
 var player_info = {
 	id : "",
