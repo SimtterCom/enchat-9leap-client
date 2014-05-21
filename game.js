@@ -12,6 +12,10 @@ var player_info = {
 
 var player = null;
 var other_players = {};
+var chattingHistories = [];
+var chattingHistoryLabels = [];
+var maxChattingHistories = 5;
+var chattingHistoryChangeFlag = false;
 
 socket.on("connect", function() {
   player_info.id = socket.socket.sessionid;
@@ -302,6 +306,11 @@ window.onload = function() {
             // サーバからこのユーザのメッセージが来たらフキダシに表示
             socket.on("message:" + id, function(text) {
                 other_player.message.text = text;
+                chattingHistories.unshift({name:other_player.login_name.text, message:other_player.message.text});
+                if(chattingHistories.length > maxChattingHistories) {
+					chattingHistories.pop();
+				}
+				chattingHistoryChangeFlag = true;
             });
 
             // 切断が送られてきたら表示とオブジェクトの消去
@@ -335,11 +344,49 @@ window.onload = function() {
             var message = this.value;
             if ( message != '' ) {
                 player.message.text = player_info.message = message;
+                chattingHistories.unshift({name:player.login_name.text, message:player.message.text});
+                if(chattingHistories.length > maxChattingHistories) {
+					chattingHistories.pop();
+				}
+				chattingHistoryChangeFlag = true;
                 socket.emit("message", message);
                 this.value = '';
             }
         });
         game.rootScene.addChild(inputTextBox);
+
+        var chattingHistoriesDisplay = new Group();
+        chattingHistoriesDisplay.x = 175;
+        chattingHistoriesDisplay.y = 280 - (16*maxChattingHistories);
+        game.rootScene.addChild(chattingHistoriesDisplay);
+        var chattingHistoryDisplayY = 16*(maxChattingHistories-1);
+        for(var i = 0; i < maxChattingHistories; i++) {
+			var chattingHistoryDisplay = new Group();
+			chattingHistoryDisplay.x = 0;
+			chattingHistoryDisplay.y = chattingHistoryDisplayY;
+        	chattingHistoriesDisplay.addChild(chattingHistoryDisplay);
+	        var nameLabel = new Label( '' );
+	        nameLabel.width = 50;
+	        nameLabel.height = 16;
+	        nameLabel.color = 'black';
+            nameLabel.backgroundColor = 'rgba(255, 255, 255, 0.75)';
+	        nameLabel.x = 0;
+	        nameLabel.y = 0;
+			chattingHistoryDisplay.addChild(nameLabel);
+
+	        var messageLabel = new Label( '' );
+	        messageLabel.width = 100;
+	        messageLabel.height = 16;
+	        messageLabel.color = 'black';
+            messageLabel.backgroundColor = 'rgba(255, 255, 255, 0.75)';
+	        messageLabel.x = 50;
+	        messageLabel.y = 0;
+			chattingHistoryDisplay.addChild(messageLabel);
+
+			chattingHistoryLabels.push({name:nameLabel, message:messageLabel});
+
+			chattingHistoryDisplayY -= 16;
+        }
 
         game.rootScene.addEventListener('enterframe', function(e) {
             var x = Math.min((game.width  - 16) / 2 - player.x, 0);
@@ -348,6 +395,13 @@ window.onload = function() {
             y = Math.max(game.height, y + map.height) - map.height;
             stage.x = x;
             stage.y = y;
+            if(chattingHistoryChangeFlag) {
+		        for(var i = 0; i < chattingHistories.length; i++) {
+					chattingHistoryLabels[i].name.text = chattingHistories[i].name;
+					chattingHistoryLabels[i].message.text = chattingHistories[i].message;
+				}
+				chattingHistoryChangeFlag = false;
+			}
         });
     };
     game.start();
