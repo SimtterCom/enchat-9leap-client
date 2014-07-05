@@ -1,13 +1,17 @@
 var socket = io.connect('http://enchat-9leap.herokuapp.com');
 name = window.prompt("ユーザー名を入力してください");
 
+var enchat = {};
+enchat.main = {};
+
 var player_info = {
 	id : "",
 	login_name : name,
 	x : (6 * 16 - 8),
 	y : (10 * 16),
 	direction : 0,
-	message : "…" // フキダシの中身
+	message : "…", // フキダシの中身
+	imageUrl : "chara0.png"
 };
 
 var player = null;
@@ -27,10 +31,55 @@ socket.on("connect", function() {
 
 enchant();
 
+enchat.main.SettingDialog = enchant.Class.create(enchant.Scene, {
+	initialize: function() {
+		enchant.Scene.call(this)
+		var parent = this;
+		this.backgroundColor = 'rgb(238, 238, 238)';
+
+		this.onaccept = function(imageUrl) {
+		}
+		
+		this.oncancel = function() {
+		}
+		
+		this.imageUrlLabel = new Label('画像URL:');
+		this.imageUrlLabel.x = 0;
+		this.imageUrlLabel.y = 8;
+		this.addChild(this.imageUrlLabel);
+
+		this.imageUrlInputTextBox = new InputTextBox();
+		this.imageUrlInputTextBox.x = 64;
+		this.imageUrlInputTextBox.y = 8;
+
+		this.settingDialogOkButton = new Button('OK');
+		this.settingDialogOkButton.x = 8;
+		this.settingDialogOkButton.y = this.height - this.settingDialogOkButton.height - 8;
+		this.settingDialogOkButton.ontouchend = function() {
+			parent.onaccept.call(this, parent.imageUrlInputTextBox.value);
+			enchant.Core.instance.popScene();
+		};
+		this.addChild(this.settingDialogOkButton);
+
+		this.settingDialogCancelButton = new Button('キャンセル');
+		this.settingDialogCancelButton.x = this.width - this.settingDialogCancelButton.width - 8;
+		this.settingDialogCancelButton.y = this.height - this.settingDialogCancelButton.height - 8;
+		this.settingDialogCancelButton.ontouchend = function() {
+			parent.oncancel.call(this);
+			enchant.Core.instance.popScene();
+		};
+    	this.addChild(this.settingDialogCancelButton);
+	},
+	open: function() {
+    	enchant.Core.instance.pushScene(this);
+		this.addChild(this.imageUrlInputTextBox);
+	}}
+);
+
 window.onload = function() {
     var game = new Game(320, 320);
     game.fps = 15;
-    game.preload('map1.gif', 'chara0.gif');
+    game.preload('map1.gif', player_info.imageUrl);
     game.onload = function() {
         var map = new Map(16, 16);
         map.image = game.assets['map1.gif'];
@@ -172,12 +221,20 @@ window.onload = function() {
         player.id = player_info.id;
         player.x = player_info.x;
         player.y = player_info.y;
-        var image = new Surface(96, 128);
-        image.draw(game.assets['chara0.gif'], 0, 0, 96, 128, 0, 0, 96, 128);
-        player.image = image;
+        player.image = game.assets[player_info.imageUrl];
+        player.setImage = function() {
+			if(game.assets[player.loadingImageUrl]) {
+				player.image = game.assets[player.loadingImageUrl];
+				if(player_info.imageUrl!=player.loadingImageUrl) {
+					player_info.imageUrl = player.loadingImageUrl;
+					socket.emit("setImage", player_info.imageUrl);
+				}
+			}
+		};
+		player.setImage(player_info.imageUrl);
 
         player.isMoving = false;
-        player.direction = 0;
+        player.direction = player_info.direction;
         player.walk = 1;
 
         // 名前の表示
@@ -258,9 +315,21 @@ window.onload = function() {
             other_player.id = id;
             other_player.x = 7 * 16 - 8;
             other_player.y = 11 * 16;
-            var image2 = new Surface(96, 128);
-            image2.draw(game.assets['chara0.gif'], 100, 0, 96, 128, 0, 0, 96, 128);
-            other_player.image = image2;
+            other_player_info.imageUrl = other_player.loadingImageUrl = other_player_info.imageUrl;
+	        other_player.setImage = function() {
+				if(game.assets[other_player.loadingImageUrl]) {
+					other_player.image = game.assets[other_player.loadingImageUrl];
+					if(other_player_info.imageUrl!=other_player.loadingImageUrl) {
+						other_player_info.imageUrl = other_player.loadingImageUrl;
+						socket.emit("setImage", other_player_info.imageUrl);
+					}
+				}
+			};
+			if(game.assets[other_player.loadingImageUrl]) {
+				other_player.setImage();
+			} else {
+				game.load(other_player.loadingImageUrl, other_player.setImage);
+			}
 
             // 名前の表示
             other_player.login_name = new Label( other_player_info.login_name );
@@ -322,6 +391,12 @@ window.onload = function() {
                 delete other_players[other_player.id];
                 delete other_player;
             });
+
+            // サーバからこのユーザのメッセージが来たらフキダシに表示
+            socket.on("setImage:" + id, function(imageUrl) {
+				other_player_info.imageUrl = other_player.loadingImageUrl = imageUrl;
+				game.load(other_player.loadingImageUrl, other_player.setImage);
+			});
         });
 
         var stage = new Group();
@@ -330,6 +405,19 @@ window.onload = function() {
         stage.addChild(foregroundMap);
         stage.addChild(message_group);
         game.rootScene.addChild(stage);
+
+        var settingButton = new Button('設定');
+        settingButton.x = 100;
+        settingButton.y = 280;
+        settingButton.ontouchend = function() {
+			var settingDialog = new enchat.main.SettingDialog();
+			settingDialog.onaccept = function(imageUrl) {
+				player.loadingImageUrl = imageUrl;
+				game.load(player.loadingImageUrl, player.setImage);
+			};
+        	settingDialog.open();
+        };
+        game.rootScene.addChild(settingButton);
 
         var pad = new Pad();
         pad.x = 0;
