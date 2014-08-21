@@ -1,0 +1,16 @@
+{
+	"image": "chara0.png",
+
+	"width": 32,
+	"hight": 32,
+
+	"front": 0,
+	"left": 3,
+	"right": 6,
+	"back": 9,
+
+	"actions": {
+		"stop": [1],
+		"walk": [2, 1, 0, 1]
+	}
+}

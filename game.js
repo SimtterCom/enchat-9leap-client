@@ -33,7 +33,7 @@ enchat.main.setLoadedImage = function(e) {
 enchat.main.loadingSettingPlayer = null;
 enchat.main.loadingSettingFile = null;
 
-enchat.main.loadSettingFile = function(player, settingFile) {
+enchat.main.loadSettingFile = function(settingPlayer, settingFile) {
 	var core = enchant.Core.instance;
 	if(enchat.main.loadingSettingPlayer || enchat.main.loadingSettingFile) {
 		return;
@@ -121,7 +121,7 @@ enchat.main.Player = enchant.Class.create(enchant.Sprite, {
 		}
 	},
 	setSettingFile: function(settingFile) {
-		enchat.main.loadingSettingFile = this.settingFile = settingFile;
+		/*enchat.main.loadingSettingFile = */this.settingFile = settingFile;
 		var core = enchant.Core.instance;
 		if(core.assets[this.settingFile]) {
 			this.setSetting(core.assets[this.settingFile]);
