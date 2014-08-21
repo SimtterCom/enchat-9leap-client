@@ -3,6 +3,54 @@ name = window.prompt("ユーザー名を入力してください");
 
 var enchat = {};
 enchat.main = {};
+enchat.main.loadingImages = {};
+
+enchat.main.loadImage = function(player, imageFile) {
+	var core = enchant.Core.instance;
+	var loadingImages = enchat.main.loadingImages[imageFile];
+	if(!loadingImages) {
+		loadingImages = [];
+		enchat.main.loadingImages[imageFile] = loadingImages;
+	}
+	loadingImages.push(player);
+	core.load(imageFile, enchat.main.setLoadedImage);
+};
+
+enchat.main.setLoadedImage = function(e) {
+	var core = enchant.Core.instance;
+	var bracketStart = e.target._css.indexOf( "(" );
+	var brackeEend = e.target._css.indexOf( ")" );
+	var imageFile = e.target._css.slice( bracketStart+1, brackeEend );
+	if(core.assets[imageFile]) {
+		var loadingPlayers = enchat.main.loadingImages[imageFile];
+		for(var i = 0; i < loadingPlayers.length; i++) {
+			loadingPlayers[i].image = core.assets[imageFile];
+		}
+		delete enchat.main.loadingImages[imageFile];
+	}
+};
+
+enchat.main.loadingSettingPlayer = null;
+enchat.main.loadingSettingFile = null;
+
+enchat.main.loadSettingFile = function(player, settingFile) {
+	var core = enchant.Core.instance;
+	if(enchat.main.loadingSettingPlayer || enchat.main.loadingSettingFile) {
+		return;
+	}
+	enchat.main.loadingSettingPlayer = settingPlayer;
+	enchat.main.loadingSettingFile = settingFile;
+	core.load(settingFile, enchat.main.setLoadedSettingFile);
+};
+
+enchat.main.setLoadedSettingFile = function(e) {
+	var core = enchant.Core.instance;
+	if(core.assets[enchat.main.loadingSettingFile]) {
+		enchat.main.loadingSettingPlayer.setSetting(core.assets[enchat.main.loadingSettingFile]);
+		enchat.main.loadingSettingPlayer = null;
+		enchat.main.loadingSettingFile = null;
+	}
+};
 
 var player_info = {
 	id : "",
@@ -11,7 +59,7 @@ var player_info = {
 	y : (10 * 16),
 	direction : 0,
 	message : "…", // フキダシの中身
-	imageUrl : "chara0.png"
+	settingFile : "chara0.json"
 };
 
 var player = null;
@@ -31,6 +79,124 @@ socket.on("connect", function() {
 
 enchant();
 
+enchat.main.Player = enchant.Class.create(enchant.Sprite, {
+	initialize: function(playerInfo) {
+		enchant.Sprite.call(this, 32, 32);
+		var core = enchant.Core.instance;
+		this.playerInfo = playerInfo;
+
+		this.setSettingFile(playerInfo.settingFile);
+
+		this.x = this.playerInfo.x;
+		this.y = this.playerInfo.y;
+		this.isMoving = false;
+		this.direction = this.playerInfo.direction;
+		this.walk = 1;
+
+		// 名前の表示
+		this.login_name = new Label( this.playerInfo.login_name );
+		this.login_name.textAlign = 'center';
+		this.login_name.width = 100;
+		this.login_name.color = 'black';
+		this.login_name.x = this.x - 35;
+		this.login_name.y = this.y + 32;
+
+		// チャット内容の表示
+		this.message = new Label( this.playerInfo.message );
+		this.message.textAlign = 'center';
+		this.message.width = 100;
+		this.message.height = 16;
+		this.message.color = 'black';
+		this.message.backgroundColor = 'rgba(255, 255, 255, 0.75)';
+		this.message.x = this.x - 30;
+		this.message.y = this.y - 16;
+	},
+	setImage: function(imageFile) {
+		this.imageFile = imageFile;
+		var core = enchant.Core.instance;
+		if(core.assets[this.imageFile]) {
+			this.image = core.assets[this.imageFile];
+		} else {
+			enchat.main.loadImage(this, this.imageFile);
+		}
+	},
+	setSettingFile: function(settingFile) {
+		enchat.main.loadingSettingFile = this.settingFile = settingFile;
+		var core = enchant.Core.instance;
+		if(core.assets[this.settingFile]) {
+			this.setSetting(core.assets[this.settingFile]);
+		} else {
+			enchat.main.loadSettingFile(this, this.settingFile);
+		}
+	},
+	setSetting: function(setting) {
+		var info = JSON.parse(setting);
+		this.width = info.width;
+		this.hight = info.hight;
+		this.setImage(info.image);
+		this.front = info.front;
+		this.left = info.left;
+		this.right = info.right;
+		this.back = info.back;
+		this.actions = info.actions;
+	}}
+);
+
+enchat.main.MainPlayer = enchant.Class.create(enchat.main.Player, {
+	initialize: function(playerInfo, map) {
+		enchat.main.Player.call(this, playerInfo);
+		this.map = map;
+
+		this.addEventListener('enterframe', function() {
+			var core = enchant.Core.instance;
+			this.frame = this.direction * 3 + this.walk;
+			if (this.isMoving) {
+				this.moveBy(this.vx, this.vy);
+				this.login_name.x = this.x - 35;
+				this.login_name.y = this.y + 32;
+				this.message.x = this.x - 30;
+				this.message.y = this.y - 16;
+				this.playerInfo.x = this.x;
+				this.playerInfo.y = this.y;
+				this.playerInfo.direction = this.direction;
+				socket.emit("position", { x : this.x, y : this.y , direction: this.direction });
+
+				if (!(core.frame % 3)) {
+					this.walk++;
+					this.walk %= 3;
+				}
+				if ((this.vx && (this.x-8) % 16 == 0) || (this.vy && this.y % 16 == 0)) {
+					this.isMoving = false;
+					this.walk = 1;
+				}
+			} else {
+				this.vx = this.vy = 0;
+				if (core.input.left) {
+					this.direction = 1;
+					this.vx = -4;
+				} else if (core.input.right) {
+					this.direction = 2;
+					this.vx = 4;
+				} else if (core.input.up) {
+					this.direction = 3;
+					this.vy = -4;
+				} else if (core.input.down) {
+					this.direction = 0;
+					this.vy = 4;
+				}
+				if (this.vx || this.vy) {
+					var x = this.x + (this.vx ? this.vx / Math.abs(this.vx) * 16 : 0) + 16;
+					var y = this.y + (this.vy ? this.vy / Math.abs(this.vy) * 16 : 0) + 16;
+					if (0 <= x && x < this.map.width && 0 <= y && y < this.map.height && !this.map.hitTest(x, y)) {
+						this.isMoving = true;
+						arguments.callee.call(this);
+					}
+				}
+			}
+		});
+	}}
+);
+
 enchat.main.SettingDialog = enchant.Class.create(enchant.Scene, {
 	initialize: function() {
 		enchant.Scene.call(this)
@@ -43,20 +209,20 @@ enchat.main.SettingDialog = enchant.Class.create(enchant.Scene, {
 		this.oncancel = function() {
 		}
 		
-		this.imageUrlLabel = new Label('画像URL:');
-		this.imageUrlLabel.x = 0;
-		this.imageUrlLabel.y = 8;
-		this.addChild(this.imageUrlLabel);
+		this.infoUrlLabel = new Label('キャラ情報(json)URL:');
+		this.infoUrlLabel.x = 0;
+		this.infoUrlLabel.y = 8;
+		this.addChild(this.infoUrlLabel);
 
-		this.imageUrlInputTextBox = new InputTextBox();
-		this.imageUrlInputTextBox.x = 64;
-		this.imageUrlInputTextBox.y = 8;
+		this.infoUrlInputTextBox = new InputTextBox();
+		this.infoUrlInputTextBox.x = 64;
+		this.infoUrlInputTextBox.y = 8;
 
 		this.settingDialogOkButton = new Button('OK');
 		this.settingDialogOkButton.x = 8;
 		this.settingDialogOkButton.y = this.height - this.settingDialogOkButton.height - 8;
 		this.settingDialogOkButton.ontouchend = function() {
-			parent.onaccept.call(this, parent.imageUrlInputTextBox.value);
+			parent.onaccept.call(this, parent.infoUrlInputTextBox.value);
 			enchant.Core.instance.popScene();
 		};
 		this.addChild(this.settingDialogOkButton);
@@ -72,14 +238,14 @@ enchat.main.SettingDialog = enchant.Class.create(enchant.Scene, {
 	},
 	open: function() {
 		enchant.Core.instance.pushScene(this);
-		this.addChild(this.imageUrlInputTextBox);
+		this.addChild(this.infoUrlInputTextBox);
 	}}
 );
 
 window.onload = function() {
 	var game = new Game(320, 320);
 	game.fps = 15;
-	game.preload('map1.gif', player_info.imageUrl);
+	game.preload('map1.gif');
 	game.onload = function() {
 		var map = new Map(16, 16);
 		map.image = game.assets['map1.gif'];
@@ -217,95 +383,12 @@ window.onload = function() {
 		var chara_group = new Group();
 		var message_group = new Group();
 
-		player = new Sprite(32, 32);
-		player.id = player_info.id;
-		player.x = player_info.x;
-		player.y = player_info.y;
-		player.image = game.assets[player_info.imageUrl];
-		player.setImage = function() {
-			if(game.assets[player.loadingImageUrl]) {
-				player.image = game.assets[player.loadingImageUrl];
-				if(player_info.imageUrl!=player.loadingImageUrl) {
-					player_info.imageUrl = player.loadingImageUrl;
-					socket.emit("setImage", player_info.imageUrl);
-				}
-			}
-		};
-		player.setImage(player_info.imageUrl);
-
-		player.isMoving = false;
-		player.direction = player_info.direction;
-		player.walk = 1;
-
-		// 名前の表示
-		player.login_name = new Label( player_info.login_name );
-		player.login_name.textAlign = 'center';
-		player.login_name.width = 100;
-		player.login_name.color = 'black';
-		player.login_name.x = player.x - 35;
-		player.login_name.y = player.y + 32;
-
-		// チャット内容の表示
-		player.message = new Label( player_info.message );
-		player.message.textAlign = 'center';
-		player.message.width = 100;
-		player.message.height = 16;
-		player.message.color = 'black';
-		player.message.backgroundColor = 'rgba(255, 255, 255, 0.75)';
-		player.message.x = player.x - 30;
-		player.message.y = player.y - 16;
+		player = new enchat.main.MainPlayer(player_info, map);
 
 		// キャラクタ表示レイヤーとメッセージ表示レイヤーに追加
 		chara_group.addChild(player);
 		chara_group.addChild(player.login_name);
 		message_group.addChild(player.message);
-
-		player.addEventListener('enterframe', function() {
-			this.frame = this.direction * 3 + this.walk;
-			if (this.isMoving) {
-				this.moveBy(this.vx, this.vy);
-				this.login_name.x = this.x - 35;
-				this.login_name.y = this.y + 32;
-				this.message.x = this.x - 30;
-				this.message.y = this.y - 16;
-				player_info.x = this.x;
-				player_info.y = this.y;
-				player_info.direction = this.direction;
-				socket.emit("position", { x : this.x, y : this.y , direction: this.direction });
-
-				if (!(game.frame % 3)) {
-					this.walk++;
-					this.walk %= 3;
-				}
-				if ((this.vx && (this.x-8) % 16 == 0) || (this.vy && this.y % 16 == 0)) {
-					this.isMoving = false;
-					this.walk = 1;
-				}
-			} else {
-				this.vx = this.vy = 0;
-				if (game.input.left) {
-					this.direction = 1;
-					this.vx = -4;
-				} else if (game.input.right) {
-					this.direction = 2;
-					this.vx = 4;
-				} else if (game.input.up) {
-					this.direction = 3;
-					this.vy = -4;
-				} else if (game.input.down) {
-					this.direction = 0;
-					this.vy = 4;
-				}
-				if (this.vx || this.vy) {
-					var x = this.x + (this.vx ? this.vx / Math.abs(this.vx) * 16 : 0) + 16;
-					var y = this.y + (this.vy ? this.vy / Math.abs(this.vy) * 16 : 0) + 16;
-					if (0 <= x && x < map.width && 0 <= y && y < map.height && !map.hitTest(x, y)) {
-						this.isMoving = true;
-						arguments.callee.call(this);
-					}
-				}
-			}
-		});
 
 		// 他のユーザのログイン
 		socket.on("name", function(other_player_info) {
@@ -411,9 +494,8 @@ window.onload = function() {
 		settingButton.y = 280;
 		settingButton.ontouchend = function() {
 			var settingDialog = new enchat.main.SettingDialog();
-			settingDialog.onaccept = function(imageUrl) {
-				player.loadingImageUrl = imageUrl;
-				game.load(player.loadingImageUrl, player.setImage);
+			settingDialog.onaccept = function(settingFile) {
+				player.setSettingFile(settingFile);
 			};
 			settingDialog.open();
 		};
