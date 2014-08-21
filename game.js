@@ -121,7 +121,7 @@ enchat.main.Player = enchant.Class.create(enchant.Sprite, {
 		}
 	},
 	setSettingFile: function(settingFile) {
-		/*enchat.main.loadingSettingFile = */this.settingFile = settingFile;
+		this.settingFile = settingFile;
 		var core = enchant.Core.instance;
 		if(core.assets[this.settingFile]) {
 			this.setSetting(core.assets[this.settingFile]);
